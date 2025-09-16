@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "EDC Mobile",
+    "slug": "edc-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "jsEngine": "hermes",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "permissions": []
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "extra": {
+      "apiBase": ""
+    }
+  }
+}

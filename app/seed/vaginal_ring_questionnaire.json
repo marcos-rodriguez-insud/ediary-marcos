@@ -1,0 +1,163 @@
+{
+  "name": "Vaginal Ring Clinical Trial e‑Diary",
+  "description": "Daily e‑Diary capturing adherence, symptoms, sexual activity, and AEs.",
+  "version": "1.0",
+  "is_active": true,
+  "questions": [
+    {
+      "text": "Did you have the trial vaginal ring inserted today?",
+      "type": "single_choice",
+      "required": true,
+      "order": 1,
+      "choices": [
+        {"text": "Yes, continuously", "value": "yes_continuous", "order": 1},
+        {"text": "Yes, reinserted after expulsion", "value": "yes_reinserted", "order": 2},
+        {"text": "No, not inserted", "value": "no", "order": 3}
+      ]
+    },
+    {
+      "text": "If not inserted at any time, what was the reason?",
+      "type": "text",
+      "required": false,
+      "order": 2
+    },
+    {
+      "text": "Approximate time of first insertion today",
+      "type": "time",
+      "required": false,
+      "order": 3
+    },
+    {
+      "text": "Did the ring come out (expulsion) today?",
+      "type": "single_choice",
+      "required": true,
+      "order": 4,
+      "choices": [
+        {"text": "No", "value": "no", "order": 1},
+        {"text": "Yes, partial", "value": "partial", "order": 2},
+        {"text": "Yes, complete", "value": "complete", "order": 3}
+      ]
+    },
+    {
+      "text": "If expelled, how long was it out?",
+      "type": "number",
+      "required": false,
+      "order": 5
+    },
+    {
+      "text": "Vaginal discomfort today",
+      "type": "likert",
+      "required": true,
+      "order": 6,
+      "choices": [
+        {"text": "None", "value": "1", "order": 1},
+        {"text": "Mild", "value": "2", "order": 2},
+        {"text": "Moderate", "value": "3", "order": 3},
+        {"text": "Severe", "value": "4", "order": 4},
+        {"text": "Very severe", "value": "5", "order": 5}
+      ]
+    },
+    {
+      "text": "Vaginal bleeding or spotting today?",
+      "type": "single_choice",
+      "required": true,
+      "order": 7,
+      "choices": [
+        {"text": "No", "value": "no", "order": 1},
+        {"text": "Spotting", "value": "spotting", "order": 2},
+        {"text": "Light", "value": "light", "order": 3},
+        {"text": "Moderate", "value": "moderate", "order": 4},
+        {"text": "Heavy", "value": "heavy", "order": 5}
+      ]
+    },
+    {
+      "text": "Sexual activity today?",
+      "type": "single_choice",
+      "required": true,
+      "order": 8,
+      "choices": [
+        {"text": "No", "value": "no", "order": 1},
+        {"text": "Yes, vaginal intercourse", "value": "vaginal", "order": 2},
+        {"text": "Yes, other sexual activity", "value": "other", "order": 3}
+      ]
+    },
+    {
+      "text": "If vaginal intercourse, was a condom used?",
+      "type": "single_choice",
+      "required": false,
+      "order": 9,
+      "choices": [
+        {"text": "Yes, entire time", "value": "yes_all", "order": 1},
+        {"text": "Yes, part of the time", "value": "yes_partial", "order": 2},
+        {"text": "No", "value": "no", "order": 3}
+      ]
+    },
+    {
+      "text": "Discomfort during intercourse (if applicable)",
+      "type": "likert",
+      "required": false,
+      "order": 10,
+      "choices": [
+        {"text": "None", "value": "1", "order": 1},
+        {"text": "Mild", "value": "2", "order": 2},
+        {"text": "Moderate", "value": "3", "order": 3},
+        {"text": "Severe", "value": "4", "order": 4},
+        {"text": "Very severe", "value": "5", "order": 5}
+      ]
+    },
+    {
+      "text": "Did your partner notice or comment on the ring?",
+      "type": "single_choice",
+      "required": false,
+      "order": 11,
+      "choices": [
+        {"text": "No", "value": "no", "order": 1},
+        {"text": "Yes, noticed but acceptable", "value": "noticed_ok", "order": 2},
+        {"text": "Yes, found it bothersome", "value": "noticed_bothersome", "order": 3}
+      ]
+    },
+    {
+      "text": "Any new symptoms or adverse events today?",
+      "type": "multi_choice",
+      "required": false,
+      "order": 12,
+      "choices": [
+        {"text": "Vaginal itching", "value": "itching", "order": 1},
+        {"text": "Vaginal burning", "value": "burning", "order": 2},
+        {"text": "Unusual discharge", "value": "discharge", "order": 3},
+        {"text": "Pelvic pain", "value": "pelvic_pain", "order": 4},
+        {"text": "Urinary symptoms", "value": "urinary", "order": 5},
+        {"text": "Other", "value": "other", "order": 6}
+      ]
+    },
+    {
+      "text": "If other symptoms/AEs, please describe",
+      "type": "text",
+      "required": false,
+      "order": 13
+    },
+    {
+      "text": "Did you take any new medications today?",
+      "type": "single_choice",
+      "required": false,
+      "order": 14,
+      "choices": [
+        {"text": "No", "value": "no", "order": 1},
+        {"text": "Yes", "value": "yes", "order": 2}
+      ]
+    },
+    {
+      "text": "If yes, list medication(s) and dose",
+      "type": "text",
+      "required": false,
+      "order": 15
+    },
+    {
+      "text": "Any additional comments?",
+      "type": "text",
+      "required": false,
+      "order": 99
+    }
+  ]
+}
+
