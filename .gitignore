@@ -12,3 +12,4 @@ __pycache__/
 frontend/node_modules/*
 
 *.db
+.DS_Store

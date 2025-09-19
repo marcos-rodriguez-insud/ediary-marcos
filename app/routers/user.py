@@ -47,8 +47,9 @@ def submit_entry(payload: EntrySubmit, db: Session = Depends(get_db)):
     if not q:
         raise HTTPException(404, "Questionnaire not found")
     entry = DiaryEntry(user_id=user.id, questionnaire_id=q.id, answers=payload.answers)
+    if user.project_id:
+        entry.project_id = user.project_id
     db.add(entry)
     db.commit()
     db.refresh(entry)
     return {"ok": True, "entry_id": entry.id}
-
