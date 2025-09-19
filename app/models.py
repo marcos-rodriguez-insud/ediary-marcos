@@ -21,6 +21,11 @@ class QuestionType(str, Enum):
     likert = "likert"
 
 
+class TaskType(str, Enum):
+    fill_form = "fill_form"
+    reminder = "reminder"
+
+
 class Project(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True, unique=True)
@@ -32,6 +37,7 @@ class Project(SQLModel, table=True):
     questionnaires: list["Questionnaire"] = Relationship(back_populates="project")  # type: ignore
     assignments: list["Assignment"] = Relationship(back_populates="project")  # type: ignore
     entries: list["DiaryEntry"] = Relationship(back_populates="project")  # type: ignore
+    tasks: list["Task"] = Relationship(back_populates="project")  # type: ignore
 
 
 class Choice(SQLModel, table=True):
@@ -95,6 +101,7 @@ class User(SQLModel, table=True):
 
     assignments: list[Assignment] = Relationship(back_populates="user")  # type: ignore
     entries: list[DiaryEntry] = Relationship(back_populates="user")  # type: ignore
+    tasks: list["Task"] = Relationship(back_populates="user")  # type: ignore
     project: Project = Relationship(back_populates="users")  # type: ignore
 
 
@@ -112,6 +119,26 @@ class Questionnaire(SQLModel, table=True):
     questions: list[Question] = Relationship(back_populates="questionnaire")  # type: ignore
     entries: list[DiaryEntry] = Relationship(back_populates="questionnaire")  # type: ignore
     project: Project = Relationship(back_populates="questionnaires")  # type: ignore
+    tasks: list["Task"] = Relationship(back_populates="questionnaire")  # type: ignore
+
+
+class Task(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id")
+    user_id: int = Field(foreign_key="user.id")
+    questionnaire_id: Optional[int] = Field(default=None, foreign_key="questionnaire.id")
+    title: str
+    description: Optional[str] = None
+    task_type: TaskType = Field(default=TaskType.reminder)
+    due_at: Optional[datetime] = None
+    reminder_minutes_before: Optional[int] = None
+    is_completed: bool = Field(default=False)
+    completed_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    project: Project = Relationship(back_populates="tasks")  # type: ignore
+    user: User = Relationship(back_populates="tasks")  # type: ignore
+    questionnaire: Optional[Questionnaire] = Relationship(back_populates="tasks")  # type: ignore
 
 
 # Pydantic models for API I/O
@@ -203,3 +230,43 @@ class ProjectRead(BaseModel):
 class ProjectsResponse(BaseModel):
     projects: list[ProjectRead]
     is_super_admin: bool
+
+
+class TaskCreate(BaseModel):
+    project_id: int
+    user_id: int
+    questionnaire_id: Optional[int] = None
+    title: str
+    description: Optional[str] = None
+    task_type: TaskType = TaskType.reminder
+    due_at: Optional[datetime] = None
+    reminder_minutes_before: Optional[int] = None
+
+
+class TaskRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    project_id: int
+    user_id: int
+    questionnaire_id: Optional[int]
+    title: str
+    description: Optional[str]
+    task_type: TaskType
+    due_at: Optional[datetime]
+    reminder_minutes_before: Optional[int]
+    is_completed: bool
+    completed_at: Optional[datetime]
+    created_at: datetime
+    questionnaire_name: Optional[str] = None
+    auto_completed: bool = False
+
+
+class TaskUpdate(BaseModel):
+    questionnaire_id: Optional[int] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    task_type: Optional[TaskType] = None
+    due_at: Optional[datetime] = None
+    reminder_minutes_before: Optional[int] = None
+    is_completed: Optional[bool] = None
+    completed_at: Optional[datetime] = None

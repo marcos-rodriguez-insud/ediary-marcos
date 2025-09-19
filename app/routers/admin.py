@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 import secrets
 from typing import List
 
@@ -22,6 +23,11 @@ from ..models import (
     Questionnaire,
     QuestionnaireCreate,
     QuestionnaireRead,
+    Task,
+    TaskCreate,
+    TaskRead,
+    TaskUpdate,
+    TaskType,
     User,
     UserCreate,
     UserRead,
@@ -43,6 +49,16 @@ def _ensure_project_allowed(admin_ctx: AdminContext, project_id: int | None) -> 
         return
     if project_id is None or project_id not in admin_ctx.project_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Project access denied")
+
+
+def _ensure_user_in_project(user: User, project_id: int) -> None:
+    if user.project_id != project_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "User does not belong to project")
+
+
+def _ensure_questionnaire_in_project(q: Questionnaire, project_id: int) -> None:
+    if q.project_id != project_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Questionnaire does not belong to project")
 
 
 @router.get("/projects", response_model=ProjectsResponse)
@@ -536,6 +552,117 @@ def delete_assignment(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Assignment not found")
     _ensure_project_allowed(admin_ctx, a.project_id)
     db.delete(a)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/tasks", response_model=List[TaskRead])
+def list_tasks(
+    project_id: int | None = Query(default=None),
+    admin_ctx: AdminContext = Depends(admin_auth),
+    db: Session = Depends(get_db),
+):
+    statement = select(Task)
+    if admin_ctx.is_super_admin:
+        if project_id is not None:
+            statement = statement.where(Task.project_id == project_id)
+    else:
+        if not admin_ctx.project_ids:
+            return []
+        if project_id is not None:
+            _ensure_project_allowed(admin_ctx, project_id)
+            statement = statement.where(Task.project_id == project_id)
+        else:
+            statement = statement.where(Task.project_id.in_(admin_ctx.project_ids))
+    statement = statement.order_by(Task.due_at.is_(None), Task.due_at)
+    tasks = db.exec(statement).all()
+    return [TaskRead.model_validate(task) for task in tasks]
+
+
+@router.post("/tasks", response_model=TaskRead)
+def create_task(
+    data: TaskCreate,
+    admin_ctx: AdminContext = Depends(admin_auth),
+    db: Session = Depends(get_db),
+):
+    _ensure_project_allowed(admin_ctx, data.project_id)
+
+    user = db.get(User, data.user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    _ensure_user_in_project(user, data.project_id)
+
+    questionnaire = None
+    if data.questionnaire_id is not None:
+        questionnaire = db.get(Questionnaire, data.questionnaire_id)
+        if not questionnaire:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Questionnaire not found")
+        _ensure_questionnaire_in_project(questionnaire, data.project_id)
+
+    task = Task(
+        project_id=data.project_id,
+        user_id=data.user_id,
+        questionnaire_id=data.questionnaire_id,
+        title=data.title,
+        description=data.description,
+        task_type=data.task_type,
+        due_at=data.due_at,
+        reminder_minutes_before=data.reminder_minutes_before,
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return TaskRead.model_validate(task)
+
+
+@router.put("/tasks/{task_id}", response_model=TaskRead)
+def update_task(
+    task_id: int,
+    data: TaskUpdate,
+    admin_ctx: AdminContext = Depends(admin_auth),
+    db: Session = Depends(get_db),
+):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+    _ensure_project_allowed(admin_ctx, task.project_id)
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "questionnaire_id" in update_data:
+        questionnaire_id = update_data.pop("questionnaire_id")
+        if questionnaire_id is not None:
+            questionnaire = db.get(Questionnaire, questionnaire_id)
+            if not questionnaire:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Questionnaire not found")
+            _ensure_questionnaire_in_project(questionnaire, task.project_id)
+        task.questionnaire_id = questionnaire_id
+
+    for field, value in update_data.items():
+        setattr(task, field, value)
+
+    if data.is_completed is True and task.completed_at is None:
+        task.completed_at = datetime.utcnow()
+    if data.is_completed is False:
+        task.completed_at = None
+
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return TaskRead.model_validate(task)
+
+
+@router.delete("/tasks/{task_id}")
+def delete_task(
+    task_id: int,
+    admin_ctx: AdminContext = Depends(admin_auth),
+    db: Session = Depends(get_db),
+):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+    _ensure_project_allowed(admin_ctx, task.project_id)
+    db.delete(task)
     db.commit()
     return {"ok": True}
 

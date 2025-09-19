@@ -1,7 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View, TouchableOpacity, Platform } from 'react-native';
 import { Button } from '../components/Button';
 import { API_BASE } from '../config';
+
+const formatDateTime = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+};
 
 export function ParticipantScreen({ onBack }) {
   const [code, setCode] = useState('');
@@ -10,6 +17,11 @@ export function ParticipantScreen({ onBack }) {
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [assignmentsList, setAssignmentsList] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [activeTaskId, setActiveTaskId] = useState(null);
+  const [authenticated, setAuthenticated] = useState(false);
 
   const visibleOrder = useMemo(() => {
     if (!assignment?.questions) {
@@ -36,42 +48,89 @@ export function ParticipantScreen({ onBack }) {
   const progressRatio = totalQuestions > 0 ? (totalQuestions - remainingQuestions) / totalQuestions : 0;
   const progressPercent = Math.max(0, Math.min(progressRatio, 1)) * 100;
 
-  const handleLoad = async () => {
-    if (!code.trim()) {
-      Alert.alert('Missing code', 'Enter your participant code to continue.');
-      return;
-    }
+  const loadParticipantData = useCallback(async (participantCode) => {
     setLoading(true);
     setStatusMessage('');
     try {
-      const res = await fetch(`${API_BASE}/api/user/questionnaires?participant_code=${encodeURIComponent(code.trim())}`);
-      if (!res.ok) {
+      const assignmentsRes = await fetch(`${API_BASE}/api/user/questionnaires?participant_code=${encodeURIComponent(participantCode)}`);
+      if (!assignmentsRes.ok) {
         setAssignment(null);
+        setAssignmentsList([]);
+        setTasks([]);
         setStatusMessage('Invalid code or failed to load assignments.');
         return;
       }
-      const data = await res.json();
-      if (!data.assignments?.length) {
+      const assignmentsData = await assignmentsRes.json();
+
+      let tasksData = { tasks: [] };
+      try {
+        const tasksRes = await fetch(`${API_BASE}/api/user/tasks?participant_code=${encodeURIComponent(participantCode)}`);
+        if (tasksRes.ok) {
+          tasksData = await tasksRes.json();
+        }
+      } catch (err) {
+        // ignore task fetch errors, tasks remain empty
+      }
+
+      const assignmentsArr = assignmentsData.assignments || [];
+      setAssignmentsList(assignmentsArr);
+      setTasks(tasksData.tasks || []);
+      setActiveTaskId(null);
+
+      if (!assignmentsArr.length) {
         setAssignment(null);
+        setAnswers({});
+        setIndex(0);
         setStatusMessage('No active assignments found.');
         return;
       }
-      const first = data.assignments[0];
-      setAssignment(first);
+
+      setAssignment(null);
       setAnswers({});
       setIndex(0);
       setStatusMessage('');
     } catch (err) {
-      setStatusMessage('Failed to load assignment.');
+      setAssignment(null);
+      setAssignmentsList([]);
+      setTasks([]);
+      setStatusMessage('Failed to load assignments.');
     } finally {
+      setHasLoaded(true);
       setLoading(false);
     }
+  }, []);
+
+  const handleLoad = async () => {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      Alert.alert('Missing code', 'Enter your participant code to continue.');
+      return;
+    }
+    await loadParticipantData(trimmed);
+    setAuthenticated(true);
   };
 
   const handlePrev = () => {
     if (index === 0) return;
     setIndex((prev) => Math.max(0, prev - 1));
   };
+
+  const handleStartTask = useCallback((task) => {
+    if (!assignmentsList.length) {
+      Alert.alert('Unavailable', 'No questionnaires available for this task yet.');
+      return;
+    }
+    const found = assignmentsList.find((item) => item.questionnaire_id === task.questionnaire_id);
+    if (!found) {
+      Alert.alert('Unavailable', 'This questionnaire is not currently assigned.');
+      return;
+    }
+    setAssignment(found);
+    setAnswers({});
+    setIndex(0);
+    setStatusMessage('');
+    setActiveTaskId(task.id);
+  }, [assignmentsList]);
 
   const handleNext = async () => {
     if (!currentQuestion) return;
@@ -110,6 +169,7 @@ export function ParticipantScreen({ onBack }) {
       setAssignment(null);
       setAnswers({});
       setIndex(0);
+      await loadParticipantData(code.trim());
       setStatusMessage('Submission complete.');
     } catch (err) {
       Alert.alert('Submission failed', 'Please try again.');
@@ -137,9 +197,59 @@ export function ParticipantScreen({ onBack }) {
             value={code}
             onChangeText={setCode}
           />
-          <Button title={loading ? 'Loading…' : 'Load Questionnaire'} onPress={handleLoad} disabled={loading} />
+          <Button
+            title={loading ? 'Loading…' : authenticated ? 'Refresh' : 'Log In'}
+            onPress={handleLoad}
+            disabled={loading}
+          />
           {statusMessage ? <Text style={styles.status}>{statusMessage}</Text> : null}
         </View>
+
+        {hasLoaded ? (
+          <View style={styles.panel}>
+            <Text style={styles.assignmentTitle}>Pending Tasks</Text>
+            {tasks.length ? (
+              <View style={styles.taskList}>
+                {tasks.map((task) => {
+                  const isFillForm = task.task_type === 'fill_form';
+                  const taskLabel = task.questionnaire_name
+                    || assignmentsList.find((item) => item.questionnaire_id === task.questionnaire_id)?.name
+                    || null;
+                  const dueLabel = task.due_at ? formatDateTime(task.due_at) : null;
+                  const isActive = activeTaskId === task.id
+                    || (isFillForm && assignment && assignment.questionnaire_id === task.questionnaire_id);
+                  return (
+                    <View key={task.id} style={[styles.taskRow, isActive && styles.selectableActive]}>
+                      <View style={styles.taskInfo}>
+                        <Text style={styles.listMain}>{task.title}</Text>
+                        {task.description ? <Text style={styles.taskDescription}>{task.description}</Text> : null}
+                        <Text style={styles.taskTypeBadge}>{task.task_type.replace('_', ' ')}</Text>
+                        {taskLabel ? <Text style={styles.listMeta}>Form: {taskLabel}</Text> : null}
+                        {dueLabel ? <Text style={styles.listMeta}>Due: {dueLabel}</Text> : null}
+                        {task.reminder_minutes_before ? (
+                          <Text style={styles.listMeta}>Reminder: {task.reminder_minutes_before} min before</Text>
+                        ) : null}
+                      </View>
+                      {isFillForm ? (
+                        <Button
+                          title={assignment?.questionnaire_id === task.questionnaire_id ? 'Continue Form' : 'Start Form'}
+                          onPress={() => handleStartTask(task)}
+                        />
+                      ) : (
+                        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                          <Text style={styles.taskMessageNote}>Message task</Text>
+                          {task.auto_completed ? <Text style={styles.taskAutoNote}>Marked complete</Text> : null}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>No pending tasks.</Text>
+            )}
+          </View>
+        ) : null}
 
         {assignment && currentQuestion ? (
           <View style={styles.panel}>
@@ -160,7 +270,13 @@ export function ParticipantScreen({ onBack }) {
               <Button title={index === visibleOrder.length - 1 ? 'Submit' : 'Next'} onPress={handleNext} />
             </View>
           </View>
-        ) : null}
+        ) : (
+          hasLoaded ? (
+            <View style={styles.panel}>
+              <Text style={styles.emptyText}>Select a task above to begin your questionnaire.</Text>
+            </View>
+          ) : null
+        )}
       </View>
     </ScrollView>
   );
@@ -298,7 +414,7 @@ function ChoiceOption({ label, selected, onPress, multiple = false }) {
   return (
     <TouchableOpacity style={[styles.choice, selected && styles.choiceSelected]} onPress={onPress}>
       <View style={[styles.indicator, selected && (multiple ? styles.indicatorChecked : styles.indicatorSelected)]}>
-        {multiple && selected ? <Text style={styles.indicatorMark}>✓</Text> : null}
+        {multiple && selected ? <Text style={styles.indicatorMark}>{'\u2713'}</Text> : null}
       </View>
       <Text style={[styles.choiceLabel, selected && styles.choiceLabelSelected]}>{label}</Text>
     </TouchableOpacity>
@@ -379,6 +495,47 @@ const styles = StyleSheet.create({
   description: {
     color: '#475569'
   },
+  taskList: {
+    gap: 12,
+  },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    padding: 16,
+    gap: 12,
+  },
+  taskInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  taskDescription: {
+    color: '#475569',
+  },
+  taskTypeBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#e0eaff',
+    color: '#1f6feb',
+    fontSize: 12,
+    textTransform: 'capitalize',
+  },
+  taskMessageNote: {
+    color: '#16a34a',
+    fontSize: 12,
+    fontStyle: 'italic',
+    maxWidth: 120,
+    textAlign: 'right',
+  },
+  taskAutoNote: {
+    color: '#64748b',
+    fontSize: 12,
+    textAlign: 'right',
+  },
   progressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -418,6 +575,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '500',
     color: '#0f172a'
+  },
+  selectableActive: {
+    borderColor: '#1f6feb',
+    backgroundColor: '#e6f0ff',
   },
   choice: {
     flexDirection: 'row',

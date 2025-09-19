@@ -51,7 +51,7 @@ def get_or_create_db() -> bool:
 
 
 def _apply_schema_upgrades() -> None:
-    tables_to_check = ["user", "questionnaire", "assignment", "diaryentry"]
+    tables_to_check = ["user", "questionnaire", "assignment", "diaryentry", "task"]
 
     with engine.begin() as conn:
         inspector = inspect(conn)
@@ -79,6 +79,16 @@ def _apply_schema_upgrades() -> None:
         ensure_column("questionnaire", "assignment_key", "TEXT")
         ensure_column("assignment", "project_id", "INTEGER")
         ensure_column("diaryentry", "project_id", "INTEGER")
+        ensure_column("task", "project_id", "INTEGER")
+        ensure_column("task", "user_id", "INTEGER")
+        ensure_column("task", "questionnaire_id", "INTEGER")
+        ensure_column("task", "task_type", "TEXT")
+        ensure_column("task", "due_at", "TIMESTAMP")
+        ensure_column("task", "reminder_minutes_before", "INTEGER")
+        ensure_column("task", "is_completed", "BOOLEAN")
+        ensure_column("task", "completed_at", "TIMESTAMP")
+        ensure_column("task", "title", "TEXT")
+        ensure_column("task", "description", "TEXT")
 
         if "project" not in table_names:
             return
