@@ -31,6 +31,10 @@ export function ParticipantScreen({ onBack }) {
   const currentQuestionId = visibleOrder[index];
   const currentQuestion = assignment?.questions?.find((q) => q.id === currentQuestionId) || null;
   const currentAnswer = currentQuestion ? answers[currentQuestion.id] : null;
+  const totalQuestions = visibleOrder.length;
+  const remainingQuestions = totalQuestions > 0 ? Math.max(totalQuestions - (index + 1), 0) : 0;
+  const progressRatio = totalQuestions > 0 ? (totalQuestions - remainingQuestions) / totalQuestions : 0;
+  const progressPercent = Math.max(0, Math.min(progressRatio, 1)) * 100;
 
   const handleLoad = async () => {
     if (!code.trim()) {
@@ -141,7 +145,15 @@ export function ParticipantScreen({ onBack }) {
           <View style={styles.panel}>
             <Text style={styles.assignmentTitle}>{assignment.name}</Text>
             {assignment.description ? <Text style={styles.description}>{assignment.description}</Text> : null}
-            <Text style={styles.progress}>Question {index + 1} of {visibleOrder.length}</Text>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressText}>Question {index + 1} of {totalQuestions || 1}</Text>
+              <Text style={styles.progressCounter}>
+                {remainingQuestions} {remainingQuestions === 1 ? 'question' : 'questions'} remaining
+              </Text>
+            </View>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+            </View>
             <QuestionView question={currentQuestion} value={currentAnswer} onChange={(value) => handleAnswerChange(currentQuestion.id, value)} />
             <View style={styles.nav}>
               <Button title="Previous" variant="secondary" onPress={handlePrev} disabled={index === 0} />
@@ -367,9 +379,32 @@ const styles = StyleSheet.create({
   description: {
     color: '#475569'
   },
-  progress: {
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  progressText: {
     color: '#475569',
-    fontSize: 14
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  progressCounter: {
+    color: '#1f2937',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: '#e2e8f0',
+    overflow: 'hidden',
+    width: '100%',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#1f6feb',
   },
   nav: {
     flexDirection: 'row',
